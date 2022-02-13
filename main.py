@@ -14,7 +14,7 @@ class ProxyServer:
         self.socket.listen(10)
         print('Proxy server is listening...')
 
-        self.conns = []
+        self.sockets = []
         self.running = True
 
         self.threads = []
@@ -30,17 +30,32 @@ class ProxyServer:
         while self.running:
             conn, addr = self.socket.accept()
             print(f'{addr} has connected.')
-            self.conns.append(conn)
+            self.sockets.append([conn, None])
         return
     
     def recv(self, buffer=1024):
         while self.running:
-            for i,conn in enumerate(self.conns):
-                data = conn.recv(buffer)
+            for conn in self.sockets:
+                data = conn[0].recv(buffer)
                 if data != b'':
-                    print(data.decode('UTF-8'))
-                    conn.close()
+                    self.handle(conn, data.decode('ASCII'))
+        return
+    
+    def handle(self, conn, data):
+        request = data.split('\n')
+        header = request[0].split(' ')
+        if header[0] == 'CONNECT': self.connect(conn, request)
+        return
+    
+    def connect(self, conn, request):
+        host, port = request[0].split(' ')[1].split(':')
+        conn[1] = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        conn[1].connect(( host, int(port) ))
+        
         return
 
 if __name__ == '__main__':
-    proxy = ProxyServer(hostname='192.168.0.61')
+    port = 9090
+    if len(sys.argv) > 1:
+        port = int(sys.argv[1])
+    proxy = ProxyServer(hostname='192.168.0.61', port=port)
